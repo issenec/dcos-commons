@@ -59,6 +59,40 @@ public class ResourceUtils {
     return resBuilder.build();
   }
 
+  public static Resource getUnreservedPathVolume(double diskSize, String pathRoot) {
+    Value diskValue = new ValueBuilder(Value.Type.SCALAR).setScalar(diskSize).build();
+    Resource.Builder resBuilder = Resource.newBuilder(ResourceUtils.getRawResource("disk", diskValue));
+    resBuilder.setRole("*");
+    resBuilder.setDisk(getUnreservedPathVolumeDiskInfo(pathRoot));
+
+    return resBuilder.build();
+  }
+
+  public static Resource getDesiredPathVolume(String role, String principal, double diskSize, String containerPath) {
+    Value value = new ValueBuilder(Value.Type.SCALAR).setScalar(diskSize).build();
+    Resource.Builder resBuilder = Resource.newBuilder(getRawResource("disk", value));
+    resBuilder.setRole(role);
+    resBuilder.setReservation(getDesiredReservationInfo(principal));
+    resBuilder.setDisk(getDesiredPathVolumeDiskInfo(principal, containerPath));
+    return resBuilder.build();
+  }
+
+  public static Resource getExpectedPathVolume(
+          double diskSize,
+          String resourceId,
+          String role,
+          String principal,
+          String pathRoot,
+          String persistenceId) {
+    Value diskValue = new ValueBuilder(Value.Type.SCALAR).setScalar(diskSize).build();
+    Resource.Builder resBuilder = Resource.newBuilder(ResourceUtils.getRawResource("disk", diskValue));
+    resBuilder.setRole(role);
+    resBuilder.setDisk(getExpectedPathVolumeDiskInfo(pathRoot, persistenceId, principal));
+    resBuilder.setReservation(getExpectedReservationInfo(resourceId, principal));
+
+    return resBuilder.build();
+  }
+
   public static Resource getUnreservedRootVolume(double diskSize) {
     Value diskValue = new ValueBuilder(Value.Type.SCALAR).setScalar(diskSize).build();
     Resource.Builder resBuilder = Resource.newBuilder(ResourceUtils.getRawResource("disk", diskValue));
@@ -299,6 +333,43 @@ public class ResourceUtils {
             .build();
   }
 
+  private static DiskInfo getUnreservedPathVolumeDiskInfo(String pathRoot) {
+    return DiskInfo.newBuilder()
+            .setSource(Source.newBuilder()
+                    .setType(Source.Type.PATH)
+                    .setPath(Source.Path.newBuilder()
+                            .setRoot(pathRoot)
+                            .build())
+                    .build())
+            .build();
+  }
+
+  private static DiskInfo getDesiredPathVolumeDiskInfo(String principal, String containerPath) {
+    return DiskInfo.newBuilder()
+            .setPersistence(Persistence.newBuilder()
+                    .setId("")
+                    .setPrincipal(principal)
+                    .build())
+            .setSource(getDesiredPathVolumeSource())
+            .setVolume(Volume.newBuilder()
+                    .setContainerPath(containerPath)
+                    .setMode(Volume.Mode.RW)
+                    .build())
+            .build();
+  }
+
+  private static DiskInfo getExpectedPathVolumeDiskInfo(
+          String pathRoot,
+          String persistenceId,
+          String principal) {
+    return DiskInfo.newBuilder(getUnreservedPathVolumeDiskInfo(pathRoot))
+            .setPersistence(Persistence.newBuilder()
+                    .setId(persistenceId)
+                    .setPrincipal(principal)
+                    .build())
+            .build();
+  }
+
   private static DiskInfo getDesiredRootVolumeDiskInfo(String principal, String containerPath) {
     return DiskInfo.newBuilder()
       .setPersistence(Persistence.newBuilder()
@@ -323,5 +394,9 @@ public class ResourceUtils {
 
   private static DiskInfo.Source getDesiredMountVolumeSource() {
     return Source.newBuilder().setType(Source.Type.MOUNT).build();
+  }
+
+  private static DiskInfo.Source getDesiredPathVolumeSource() {
+    return Source.newBuilder().setType(Source.Type.PATH).build();
   }
 }

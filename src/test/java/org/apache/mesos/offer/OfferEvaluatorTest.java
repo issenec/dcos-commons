@@ -46,10 +46,10 @@ public class OfferEvaluatorTest {
   @Test
   public void testReserveCreateLaunchMountVolume() throws InvalidRequirementException {
     Resource desiredResource = ResourceUtils.getDesiredMountVolume(
-        ResourceTestUtils.testRole,
-        ResourceTestUtils.testPrincipal,
-        1000,
-        ResourceTestUtils.testContainerPath);
+            ResourceTestUtils.testRole,
+            ResourceTestUtils.testPrincipal,
+            1000,
+            ResourceTestUtils.testContainerPath);
     Resource offeredResource = ResourceTestUtils.getOfferedUnreservedMountVolume(2000);
 
     List<OfferRecommendation> recommendations = evaluator.evaluate(
@@ -159,6 +159,107 @@ public class OfferEvaluatorTest {
   }
 
   @Test
+  public void testReserveCreateLaunchPathVolume() throws InvalidRequirementException {
+    Resource desiredResource = ResourceUtils.getDesiredPathVolume(
+            ResourceTestUtils.testRole,
+            ResourceTestUtils.testPrincipal,
+            1000,
+            ResourceTestUtils.testContainerPath);
+    Resource offeredResource = ResourceTestUtils.getOfferedUnreservedPathVolume(2000);
+
+    List<OfferRecommendation> recommendations = evaluator.evaluate(
+            getOfferRequirement(desiredResource), getOffers(offeredResource));
+    Assert.assertEquals(3, recommendations.size());
+
+    // Validate RESERVE Operation
+    Operation reserveOperation = recommendations.get(0).getOperation();
+    Resource reserveResource =
+            reserveOperation
+                    .getReserve()
+                    .getResourcesList()
+                    .get(0);
+
+    Assert.assertEquals(Operation.Type.RESERVE, reserveOperation.getType());
+    Assert.assertEquals(1000, reserveResource.getScalar().getValue(), 0.0);
+    Assert.assertEquals(ResourceTestUtils.testRole, reserveResource.getRole());
+    Assert.assertEquals(ResourceTestUtils.testPathRoot, reserveResource.getDisk().getSource().getPath().getRoot());
+    Assert.assertEquals(ResourceTestUtils.testPrincipal, reserveResource.getReservation().getPrincipal());
+    Assert.assertEquals(ResourceRequirement.RESOURCE_ID_KEY, getFirstLabel(reserveResource).getKey());
+    Assert.assertEquals(36, getFirstLabel(reserveResource).getValue().length());
+
+    // Validate CREATE Operation
+    String resourceId = getFirstLabel(reserveResource).getValue();
+    Operation createOperation = recommendations.get(1).getOperation();
+    Resource createResource =
+            createOperation
+                    .getCreate()
+                    .getVolumesList()
+                    .get(0);
+
+    Assert.assertEquals(resourceId, getFirstLabel(createResource).getValue());
+    Assert.assertEquals(36, createResource.getDisk().getPersistence().getId().length());
+    Assert.assertEquals(ResourceTestUtils.testPathRoot, createResource.getDisk().getSource().getPath().getRoot());
+    Assert.assertEquals(ResourceTestUtils.testPrincipal, createResource.getDisk().getPersistence().getPrincipal());
+    Assert.assertTrue(createResource.getDisk().hasVolume());
+
+    // Validate LAUNCH Operation
+    String persistenceId = createResource.getDisk().getPersistence().getId();
+    Operation launchOperation = recommendations.get(2).getOperation();
+    Resource launchResource =
+            launchOperation
+                    .getLaunch()
+                    .getTaskInfosList()
+                    .get(0)
+                    .getResourcesList()
+                    .get(0);
+
+    Assert.assertEquals(Operation.Type.LAUNCH, launchOperation.getType());
+    Assert.assertEquals(resourceId, getFirstLabel(launchResource).getValue());
+    Assert.assertEquals(persistenceId, launchResource.getDisk().getPersistence().getId());
+    Assert.assertEquals(ResourceTestUtils.testPathRoot, launchResource.getDisk().getSource().getPath().getRoot());
+    Assert.assertEquals(ResourceTestUtils.testPrincipal, launchResource.getDisk().getPersistence().getPrincipal());
+    Assert.assertEquals(2000, launchResource.getScalar().getValue(), 0.0);
+  }
+
+  @Test
+  public void testUpdatePathVolumeSuccess() throws Exception {
+    String resourceId = UUID.randomUUID().toString();
+    Resource updatedResource = ResourceTestUtils.getExpectedPathVolume(1500, resourceId);
+    Resource offeredResource = ResourceTestUtils.getExpectedPathVolume(2000, resourceId);
+
+    List<OfferRecommendation> recommendations = evaluator.evaluate(
+            getOfferRequirement(updatedResource), getOffers(offeredResource));
+    Assert.assertEquals(2, recommendations.size());
+
+    Operation launchOperation = recommendations.get(0).getOperation();
+    Resource launchResource =
+            launchOperation
+                    .getLaunch()
+                    .getTaskInfosList()
+                    .get(0)
+                    .getResourcesList()
+                    .get(0);
+
+    Assert.assertEquals(Operation.Type.LAUNCH, launchOperation.getType());
+    Assert.assertEquals(getFirstLabel(updatedResource).getValue(), getFirstLabel(launchResource).getValue());
+    Assert.assertEquals(updatedResource.getDisk().getPersistence().getId(), launchResource.getDisk().getPersistence().getId());
+    Assert.assertEquals(ResourceTestUtils.testPathRoot, launchResource.getDisk().getSource().getPath().getRoot());
+    Assert.assertEquals(ResourceTestUtils.testPrincipal, launchResource.getDisk().getPersistence().getPrincipal());
+    Assert.assertEquals(2000, launchResource.getScalar().getValue(), 0.0);
+  }
+
+  @Test
+  public void testUpdatePathVolumeFailure() throws Exception {
+    String resourceId = UUID.randomUUID().toString();
+    Resource updatedResource = ResourceTestUtils.getExpectedPathVolume(2500, resourceId);
+    Resource offeredResource = ResourceTestUtils.getExpectedPathVolume(2000, resourceId);
+
+    List<OfferRecommendation> recommendations = evaluator.evaluate(
+            getOfferRequirement(updatedResource), getOffers(offeredResource));
+    Assert.assertEquals(0, recommendations.size());
+  }
+
+  @Test
   public void testReserveCreateLaunchRootVolume() throws InvalidRequirementException {
     Resource desiredResource = ResourceUtils.getDesiredRootVolume(
         ResourceTestUtils.testRole,
@@ -253,6 +354,35 @@ public class OfferEvaluatorTest {
     Assert.assertEquals(1000, launchResource.getScalar().getValue(), 0.0);
     Assert.assertEquals(ResourceTestUtils.testRole, launchResource.getRole());
     Assert.assertEquals(ResourceTestUtils.testMountRoot, launchResource.getDisk().getSource().getMount().getRoot());
+    Assert.assertEquals(ResourceTestUtils.testPersistenceId, launchResource.getDisk().getPersistence().getId());
+    Assert.assertEquals(ResourceTestUtils.testPrincipal, launchResource.getDisk().getPersistence().getPrincipal());
+    Assert.assertEquals(ResourceTestUtils.testPrincipal, launchResource.getReservation().getPrincipal());
+    Assert.assertEquals(ResourceRequirement.RESOURCE_ID_KEY, getFirstLabel(launchResource).getKey());
+    Assert.assertEquals(resourceId, getFirstLabel(launchResource).getValue());
+  }
+
+  @Test
+  public void testExpectedPathVolume() throws InvalidRequirementException {
+    String resourceId = UUID.randomUUID().toString();
+    Resource expectedResource = ResourceTestUtils.getExpectedPathVolume(1000, resourceId);
+
+    List<OfferRecommendation> recommendations = evaluator.evaluate(
+            getOfferRequirement(expectedResource), getOffers(expectedResource));
+    Assert.assertEquals(1, recommendations.size());
+
+    Operation launchOperation = recommendations.get(0).getOperation();
+    Resource launchResource =
+            launchOperation
+                    .getLaunch()
+                    .getTaskInfosList()
+                    .get(0)
+                    .getResourcesList()
+                    .get(0);
+
+    Assert.assertEquals(Operation.Type.LAUNCH, launchOperation.getType());
+    Assert.assertEquals(1000, launchResource.getScalar().getValue(), 0.0);
+    Assert.assertEquals(ResourceTestUtils.testRole, launchResource.getRole());
+    Assert.assertEquals(ResourceTestUtils.testPathRoot, launchResource.getDisk().getSource().getPath().getRoot());
     Assert.assertEquals(ResourceTestUtils.testPersistenceId, launchResource.getDisk().getPersistence().getId());
     Assert.assertEquals(ResourceTestUtils.testPrincipal, launchResource.getDisk().getPersistence().getPrincipal());
     Assert.assertEquals(ResourceTestUtils.testPrincipal, launchResource.getReservation().getPrincipal());

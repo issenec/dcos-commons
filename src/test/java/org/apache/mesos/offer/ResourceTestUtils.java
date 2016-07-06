@@ -9,6 +9,7 @@ public class ResourceTestUtils {
   public static final String testFrameworkId = "test-framework-id";
   public static final String testHostname = "test-hostname";
   public static final String testMountRoot = "test-mount-root";
+  public static final String testPathRoot = "test-path-root";
   public static final String testOfferId = "test-offer-id";
   public static final String testPersistenceId = "test-persistence-id";
   public static final String testPrincipal = "test-principal";
@@ -24,6 +25,10 @@ public class ResourceTestUtils {
     return ResourceUtils.getUnreservedMountVolume(diskSize, testMountRoot);
   }
 
+  public static Resource getOfferedUnreservedPathVolume(double diskSize) {
+    return ResourceUtils.getUnreservedPathVolume(diskSize, testMountRoot);
+  }
+
   public static Resource getExpectedMountVolume(double diskSize, String resourceId) {
     return ResourceUtils.getExpectedMountVolume(
             diskSize,
@@ -31,6 +36,16 @@ public class ResourceTestUtils {
             testRole,
             testPrincipal,
             testMountRoot,
+            testPersistenceId);
+  }
+
+  public static Resource getExpectedPathVolume(double diskSize, String resourceId) {
+    return ResourceUtils.getExpectedPathVolume(
+            diskSize,
+            resourceId,
+            testRole,
+            testPrincipal,
+            testPathRoot,
             testPersistenceId);
   }
 
