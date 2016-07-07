@@ -26,7 +26,7 @@ public class ResourceTestUtils {
   }
 
   public static Resource getOfferedUnreservedPathVolume(double diskSize) {
-    return ResourceUtils.getUnreservedPathVolume(diskSize, testMountRoot);
+    return ResourceUtils.getUnreservedPathVolume(diskSize, testPathRoot);
   }
 
   public static Resource getExpectedMountVolume(double diskSize, String resourceId) {

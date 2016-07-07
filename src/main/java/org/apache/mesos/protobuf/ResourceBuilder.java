@@ -227,6 +227,34 @@ public class ResourceBuilder {
     return Resource.newBuilder(diskResource).setDisk(diskInfo).build();
   }
 
+  public static Resource pathVolume(double disk, String role, String principal, String containerPath) {
+    Resource vol = volume(disk, role, principal, containerPath, "");
+    Resource.Builder resBuilder = Resource.newBuilder(vol);
+    DiskInfo.Builder diskBuilder = DiskInfo.newBuilder(vol.getDisk());
+    diskBuilder.clearPersistence();
+    Source.Builder sourceBuilder = Source.newBuilder();
+    sourceBuilder.setType(Source.Type.PATH);
+
+    diskBuilder.setSource(sourceBuilder.build());
+    resBuilder.setDisk(diskBuilder.build());
+    return resBuilder.build();
+  }
+
+  public static Resource pathVolume(double diskSize, String root) {
+    Resource diskResource = disk(diskSize);
+    DiskInfo diskInfo = DiskInfo.newBuilder()
+      .setSource(
+        Source.newBuilder()
+          .setType(Source.Type.PATH)
+          .setPath(
+            Source.Path.newBuilder()
+            .setRoot(root).build())
+          .build())
+      .build();
+
+    return Resource.newBuilder(diskResource).setDisk(diskInfo).build();
+  }
+
   public static Resource volume(
       double disk,
       String role,
